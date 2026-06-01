@@ -18,8 +18,47 @@ const quickNoteSchema = z.object({
   situationKindId: z.string().min(1),
   quickText: z.string().trim().min(1, "한 줄 메모를 적어주세요."),
   observedAt: z.coerce.date().optional(),
-  locationLabel: z.string().optional(),
+  observedDate: z.string().trim().optional(),
+  observedTime: z.string().trim().optional(),
+  locationLabel: z.string().trim().optional(),
 });
+
+function optionalText(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function parseObservedAt(input: {
+  observedAt?: Date;
+  observedDate?: string;
+  observedTime?: string;
+}) {
+  const observedDate = optionalText(input.observedDate);
+
+  if (!observedDate) {
+    return input.observedAt ?? new Date();
+  }
+
+  const observedTime = optionalText(input.observedTime) ?? "12:00";
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(observedDate)) {
+    throw new Error("날짜를 다시 확인해주세요.");
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(observedTime)) {
+    throw new Error("시간을 다시 확인해주세요.");
+  }
+
+  const timeWithSeconds =
+    observedTime.length === 5 ? `${observedTime}:00` : observedTime;
+  const observedAt = new Date(`${observedDate}T${timeWithSeconds}+09:00`);
+
+  if (Number.isNaN(observedAt.getTime())) {
+    throw new Error("언제 있었던 일인지 다시 확인해주세요.");
+  }
+
+  return observedAt;
+}
 
 function toActionError(error: unknown): ActionState {
   if (error instanceof z.ZodError) {
@@ -72,8 +111,8 @@ export async function createQuickNote(
         childId: input.childId,
         createdByMemberId: member.id,
         situationKindId: input.situationKindId,
-        observedAt: input.observedAt ?? new Date(),
-        locationLabel: input.locationLabel,
+        observedAt: parseObservedAt(input),
+        locationLabel: optionalText(input.locationLabel),
         quickText: input.quickText,
         status: "QUICK_ONLY",
       },
@@ -93,7 +132,6 @@ export async function createQuickNote(
 const detailSchema = z.object({
   familyId: z.string().min(1),
   noteId: z.string().min(1),
-  situationKindId: z.string().min(1),
   cueRawText: z.string().trim().min(1, "그때 보인 것을 한 줄 적어주세요."),
   cueObservedText: z.string().optional(),
   childActionText: z.string().optional(),

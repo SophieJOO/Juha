@@ -27,7 +27,8 @@ export const dynamic = "force-dynamic";
 const navItems = [
   { label: "오늘", mobileLabel: "오늘", href: "#today", icon: Home },
   { label: "30초 메모", mobileLabel: "메모", href: "#quick", icon: Plus },
-  { label: "자세히 정리", mobileLabel: "정리", href: "#detail", icon: ClipboardList },
+  { label: "기록 리스트", mobileLabel: "기록", href: "#records", icon: ClipboardList },
+  { label: "자세히 정리", mobileLabel: "정리", href: "#detail", icon: CheckCircle2 },
   { label: "반복해서 나온 것", mobileLabel: "반복", href: "#repeated", icon: Sparkles },
   { label: "전문가 판단 목록", mobileLabel: "판단", href: "#review", icon: ListChecks },
   { label: "전문가에게 보여주기", mobileLabel: "공유", href: "#export", icon: FileDown },
@@ -43,12 +44,15 @@ type HomeData = {
   childName: string;
   situationKinds: { id: string; label: string }[];
   pendingNotes: { id: string; label: string; quickText: string }[];
-  recentNotes: {
+  recordRows: {
     id: string;
     quickText: string;
     label: string;
     observedAt: string;
+    locationLabel: string | null;
     status: string;
+    detailText: string | null;
+    askExpert: boolean;
   }[];
   repeatedPatterns: {
     id: string;
@@ -66,11 +70,55 @@ type HomeData = {
   };
 };
 
+const KOREA_TIME_ZONE = "Asia/Seoul";
+
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
     month: "long",
     day: "numeric",
     weekday: "short",
+  }).format(date);
+}
+
+function getKoreaDateParts(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: KOREA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+}
+
+function formatInputDate(date: Date) {
+  const parts = getKoreaDateParts(date);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function formatInputTime(date: Date) {
+  const parts = getKoreaDateParts(date);
+  return `${parts.hour}:${parts.minute}`;
+}
+
+function formatRecordDate(date: Date) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: KOREA_TIME_ZONE,
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   }).format(date);
 }
 
@@ -210,14 +258,14 @@ async function ensureHomeData(userId: string, email?: string | null) {
     prisma.observationNote.findMany({
       where: { familyId },
       orderBy: { observedAt: "desc" },
-      take: 20,
+      take: 50,
       select: {
         id: true,
         quickText: true,
         observedAt: true,
-        status: true,
+        locationLabel: true,
         situationKind: { select: { userFacingLabel: true } },
-        detail: { select: { id: true } },
+        detail: { select: { id: true, cueRawText: true, askExpert: true } },
       },
     }),
     prisma.cueKey.findMany({
@@ -273,12 +321,15 @@ async function ensureHomeData(userId: string, email?: string | null) {
       label: kind.userFacingLabel,
     })),
     pendingNotes,
-    recentNotes: notes.slice(0, 6).map((note) => ({
+    recordRows: notes.map((note) => ({
       id: note.id,
       quickText: note.quickText,
       label: note.situationKind?.userFacingLabel ?? "기타",
-      observedAt: formatDate(note.observedAt),
+      observedAt: formatRecordDate(note.observedAt),
+      locationLabel: note.locationLabel,
       status: note.detail ? "자세히 정리됨" : "정리 전",
+      detailText: note.detail?.cueRawText ?? null,
+      askExpert: note.detail?.askExpert ?? false,
     })),
     repeatedPatterns,
     stats: {
@@ -381,7 +432,10 @@ export default async function HomePage() {
 
   const data = await ensureHomeData(userId, session.user?.email);
 
-  const todayLabel = formatDate(new Date());
+  const now = new Date();
+  const todayLabel = formatDate(now);
+  const defaultObservedDate = formatInputDate(now);
+  const defaultObservedTime = formatInputTime(now);
 
   return (
     <main className="min-h-[100svh] overflow-x-hidden bg-stone-50 pb-24 lg:pb-0">
@@ -429,7 +483,7 @@ export default async function HomePage() {
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <a className="inline-flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm hover:bg-stone-100" href="#export">
+                <a className="inline-flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm hover:bg-stone-100" href="#records">
                   <Search className="size-4" />
                   찾아보기
                 </a>
@@ -450,6 +504,8 @@ export default async function HomePage() {
               >
                 <QuickNoteForm
                   childId={data.childId}
+                  defaultObservedDate={defaultObservedDate}
+                  defaultObservedTime={defaultObservedTime}
                   familyId={data.familyId}
                   situationKinds={data.situationKinds}
                 />
@@ -494,23 +550,41 @@ export default async function HomePage() {
             </section>
 
             <section className="space-y-4 lg:space-y-6">
-              <SectionShell id="recent" title="최근 메모">
+              <SectionShell
+                description="최근 기록을 시간순으로 볼 수 있습니다."
+                id="records"
+                title="기록 리스트"
+              >
                 <div className="mt-4 divide-y divide-stone-200">
-                  {data.recentNotes.length === 0 ? (
+                  {data.recordRows.length === 0 ? (
                     <p className="py-4 text-sm text-neutral-500">
                       아직 저장된 메모가 없습니다.
                     </p>
                   ) : (
-                    data.recentNotes.map((note) => (
+                    data.recordRows.map((note) => (
                       <div key={note.id} className="py-4 first:pt-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="break-keep text-[15px] font-medium leading-6 sm:text-base">
                               {note.quickText}
                             </p>
-                            <p className="mt-1 text-sm text-neutral-500">
-                              {note.label} · {note.observedAt}
-                            </p>
+                            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm text-neutral-500">
+                              <span>{note.label}</span>
+                              <span>{note.observedAt}</span>
+                              {note.locationLabel ? (
+                                <span>{note.locationLabel}</span>
+                              ) : null}
+                            </div>
+                            {note.detailText ? (
+                              <p className="mt-2 text-sm leading-5 text-neutral-600">
+                                그때 보인 것: {note.detailText}
+                              </p>
+                            ) : null}
+                            {note.askExpert ? (
+                              <span className="mt-2 inline-flex rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
+                                전문가에게 물어볼 것
+                              </span>
+                            ) : null}
                           </div>
                           <span className="shrink-0 rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
                             {note.status}

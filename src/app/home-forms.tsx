@@ -48,10 +48,14 @@ export function QuickNoteForm({
   familyId,
   childId,
   situationKinds,
+  defaultObservedDate,
+  defaultObservedTime,
 }: {
   familyId: string;
   childId: string;
   situationKinds: SituationOption[];
+  defaultObservedDate: string;
+  defaultObservedTime: string;
 }) {
   const [state, formAction, isPending] = useActionState(
     createQuickNote,
@@ -81,6 +85,28 @@ export function QuickNoteForm({
     <form action={formAction} className="mt-4 grid gap-4 sm:mt-5" ref={formRef}>
       <input name="familyId" type="hidden" value={familyId} />
       <input name="childId" type="hidden" value={childId} />
+
+      <div className="grid gap-2">
+        <span className="text-sm font-medium text-neutral-700">
+          언제였나요?
+        </span>
+        <div className="grid grid-cols-[1.25fr_0.75fr] gap-2">
+          <input
+            aria-label="날짜"
+            className="min-h-11 rounded-md border border-stone-300 px-3 py-2 text-base outline-none ring-teal-600 transition focus:ring-2"
+            defaultValue={defaultObservedDate}
+            name="observedDate"
+            type="date"
+          />
+          <input
+            aria-label="시간"
+            className="min-h-11 rounded-md border border-stone-300 px-3 py-2 text-base outline-none ring-teal-600 transition focus:ring-2"
+            defaultValue={defaultObservedTime}
+            name="observedTime"
+            type="time"
+          />
+        </div>
+      </div>
 
       <fieldset className="grid gap-2">
         <legend className="text-sm font-medium text-neutral-700">
