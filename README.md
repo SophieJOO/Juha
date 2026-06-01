@@ -8,7 +8,7 @@
 - Vercel
 - Postgres or Neon
 - Prisma
-- Auth.js magic link
+- Auth.js Google login
 - Tailwind CSS
 
 ## Local Setup
@@ -30,8 +30,9 @@ npm run dev
 DATABASE_URL="postgresql://..."
 AUTH_SECRET="generate-a-long-random-secret"
 NEXTAUTH_URL="http://localhost:3000"
-RESEND_API_KEY="re_..."
-EMAIL_FROM="Juha Observation OS <noreply@example.com>"
+AUTH_URL="http://localhost:3000"
+AUTH_GOOGLE_ID="google-client-id.apps.googleusercontent.com"
+AUTH_GOOGLE_SECRET="google-client-secret"
 ```
 
 ## Review Commands
