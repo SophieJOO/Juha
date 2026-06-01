@@ -33,7 +33,10 @@ NEXTAUTH_URL="http://localhost:3000"
 AUTH_URL="http://localhost:3000"
 AUTH_GOOGLE_ID="google-client-id.apps.googleusercontent.com"
 AUTH_GOOGLE_SECRET="google-client-secret"
+ALLOWED_EMAILS="mom@gmail.com,dad@gmail.com"
 ```
+
+`ALLOWED_EMAILS`를 설정하면 그 Google 계정만 로그인할 수 있습니다. 허용된 두 번째 계정은 기존 가족 기록에 자동으로 합류합니다.
 
 ## Review Commands
 

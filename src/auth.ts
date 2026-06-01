@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { isEmailAllowed } from "@/lib/allowed-emails";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -20,6 +21,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+  },
+  callbacks: {
+    async signIn({ user }) {
+      return isEmailAllowed(user.email);
+    },
   },
   trustHost: true,
 });

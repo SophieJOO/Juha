@@ -16,6 +16,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { DetailForm, QuickNoteForm } from "@/app/home-forms";
+import { isExplicitlyAllowedEmail } from "@/lib/allowed-emails";
 import { DEFAULT_SITUATION_KINDS } from "@/lib/default-situation-kinds";
 import { createFamilyWithDefaults } from "@/lib/family-service";
 import { prisma } from "@/lib/prisma";
@@ -116,13 +117,41 @@ async function ensureHomeData(userId: string, email?: string | null) {
   });
 
   if (!member) {
-    const family = await createFamilyWithDefaults({
-      ownerUserId: userId,
-      ownerName: email ?? "부모",
-      familyName: "주하 가족",
-      childName: "주하",
-    });
-    member = { familyId: family.id };
+    const existingFamily = isExplicitlyAllowedEmail(email)
+      ? await prisma.family.findFirst({
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        })
+      : null;
+
+    if (existingFamily) {
+      await prisma.familyMember.upsert({
+        where: {
+          familyId_userId: {
+            familyId: existingFamily.id,
+            userId,
+          },
+        },
+        create: {
+          familyId: existingFamily.id,
+          userId,
+          name: email ?? "부모",
+          role: "PARENT",
+        },
+        update: {
+          name: email ?? "부모",
+        },
+      });
+      member = { familyId: existingFamily.id };
+    } else {
+      const family = await createFamilyWithDefaults({
+        ownerUserId: userId,
+        ownerName: email ?? "부모",
+        familyName: "주하 가족",
+        childName: "주하",
+      });
+      member = { familyId: family.id };
+    }
   }
 
   const familyId = member.familyId;
