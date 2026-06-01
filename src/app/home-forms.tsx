@@ -32,7 +32,7 @@ function ActionMessage({ state }: { state: ActionState }) {
   return (
     <div
       role={state.ok ? "status" : "alert"}
-      className={`mt-4 flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+      className={`mt-4 flex items-start gap-2 rounded-md border px-3 py-2 text-[13px] leading-5 sm:text-sm ${
         state.ok
           ? "border-emerald-200 bg-emerald-50 text-emerald-900"
           : "border-amber-200 bg-amber-50 text-amber-950"
@@ -78,7 +78,7 @@ export function QuickNoteForm({
   }, [state.ok, storageKey]);
 
   return (
-    <form action={formAction} className="mt-5 grid gap-4" ref={formRef}>
+    <form action={formAction} className="mt-4 grid gap-4 sm:mt-5" ref={formRef}>
       <input name="familyId" type="hidden" value={familyId} />
       <input name="childId" type="hidden" value={childId} />
 
@@ -86,7 +86,7 @@ export function QuickNoteForm({
         <legend className="text-sm font-medium text-neutral-700">
           무슨 일이었나요?
         </legend>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 md:grid-cols-3">
           {situationKinds.map((kind, index) => (
             <label key={kind.id} className="group">
               <input
@@ -96,7 +96,7 @@ export function QuickNoteForm({
                 type="radio"
                 value={kind.id}
               />
-              <span className="flex min-h-11 cursor-pointer items-center rounded-md border border-stone-300 bg-stone-50 px-3 py-2 text-left text-sm font-medium text-neutral-700 group-hover:border-teal-600 group-hover:bg-teal-50 peer-checked:border-teal-700 peer-checked:bg-teal-50 peer-checked:text-teal-950">
+              <span className="flex min-h-11 cursor-pointer items-center break-keep rounded-md border border-stone-300 bg-stone-50 px-3 py-2 text-left text-[15px] font-medium leading-5 text-neutral-700 group-hover:border-teal-600 group-hover:bg-teal-50 peer-checked:border-teal-700 peer-checked:bg-teal-50 peer-checked:text-teal-950 sm:text-sm">
                 {kind.label}
               </span>
             </label>
@@ -107,7 +107,7 @@ export function QuickNoteForm({
       <label className="grid gap-2 text-sm font-medium text-neutral-700">
         한 줄 메모
         <textarea
-          className="min-h-28 rounded-md border border-stone-300 px-3 py-3 text-base outline-none ring-teal-600 transition placeholder:text-neutral-400 focus:ring-2"
+          className="min-h-32 rounded-md border border-stone-300 px-3 py-3 text-base leading-6 outline-none ring-teal-600 transition placeholder:text-neutral-400 focus:ring-2 sm:min-h-28"
           name="quickText"
           onChange={(event) => {
             if (event.target.value) {
@@ -132,7 +132,7 @@ export function QuickNoteForm({
       </label>
 
       <button
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-neutral-300 sm:min-h-11 sm:text-sm"
         disabled={isPending || situationKinds.length === 0}
       >
         {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -157,7 +157,7 @@ export function DetailForm({
   );
 
   return (
-    <form action={formAction} className="mt-5 grid gap-4">
+    <form action={formAction} className="mt-4 grid gap-4 sm:mt-5">
       <input name="familyId" type="hidden" value={familyId} />
 
       <label className="grid gap-2 text-sm font-medium text-neutral-700">
@@ -199,7 +199,7 @@ export function DetailForm({
         />
       </label>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium text-neutral-700">
           주하는 무엇을 했나요?
           <textarea
@@ -255,7 +255,7 @@ export function DetailForm({
       </div>
 
       <button
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-neutral-900 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-neutral-900 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300 sm:min-h-11 sm:text-sm"
         disabled={isPending || pendingNotes.length === 0}
       >
         {isPending ? <Loader2 className="size-4 animate-spin" /> : null}

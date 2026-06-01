@@ -16,6 +16,11 @@ body {
   font-family:
     "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", Arial, Helvetica,
     sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 button,
@@ -23,4 +28,8 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+* {
+  min-width: 0;
 }

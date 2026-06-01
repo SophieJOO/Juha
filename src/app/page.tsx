@@ -24,13 +24,13 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const navItems = [
-  { label: "오늘", href: "#today", icon: Home },
-  { label: "30초 메모", href: "#quick", icon: Plus },
-  { label: "자세히 정리", href: "#detail", icon: ClipboardList },
-  { label: "반복해서 나온 것", href: "#repeated", icon: Sparkles },
-  { label: "전문가 판단 목록", href: "#review", icon: ListChecks },
-  { label: "전문가에게 보여주기", href: "#export", icon: FileDown },
-  { label: "설정", href: "#settings", icon: Settings },
+  { label: "오늘", mobileLabel: "오늘", href: "#today", icon: Home },
+  { label: "30초 메모", mobileLabel: "메모", href: "#quick", icon: Plus },
+  { label: "자세히 정리", mobileLabel: "정리", href: "#detail", icon: ClipboardList },
+  { label: "반복해서 나온 것", mobileLabel: "반복", href: "#repeated", icon: Sparkles },
+  { label: "전문가 판단 목록", mobileLabel: "판단", href: "#review", icon: ListChecks },
+  { label: "전문가에게 보여주기", mobileLabel: "공유", href: "#export", icon: FileDown },
+  { label: "설정", mobileLabel: "설정", href: "#settings", icon: Settings },
 ];
 
 const bottomNavItems = navItems.slice(0, 5);
@@ -295,7 +295,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
 
 function LoginRequired() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 px-5">
+    <main className="flex min-h-[100svh] items-center justify-center bg-stone-50 px-5">
       <section className="w-full max-w-md rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold text-teal-700">주하 관찰 OS</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
@@ -309,7 +309,7 @@ function LoginRequired() {
           className="mt-6 inline-flex w-full min-h-11 items-center justify-center rounded-md bg-teal-700 px-4 py-3 text-sm font-medium text-white hover:bg-teal-800"
           href="/login"
         >
-          이메일로 들어가기
+          Google로 들어가기
         </Link>
       </section>
     </main>
@@ -329,17 +329,44 @@ function SectionShell({
 }) {
   return (
     <section
-      className="scroll-mt-24 rounded-lg border border-stone-200 bg-white p-5 shadow-sm"
+      className="scroll-mt-20 border-y border-stone-200 bg-white p-4 shadow-none sm:scroll-mt-24 sm:rounded-lg sm:border sm:p-5 sm:shadow-sm"
       id={id}
     >
       <div>
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="text-[1.05rem] font-semibold sm:text-lg">{title}</h3>
         {description ? (
-          <p className="mt-1 text-sm text-neutral-500">{description}</p>
+          <p className="mt-1 text-[13px] leading-5 text-neutral-500 sm:text-sm">
+            {description}
+          </p>
         ) : null}
       </div>
       {children}
     </section>
+  );
+}
+
+function MobileHeader({ date, familyName }: { date: string; familyName: string }) {
+  return (
+    <header
+      className="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur lg:hidden"
+    >
+      <p className="text-xs font-semibold text-teal-700">주하 관찰 OS</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-semibold tracking-tight">
+            {familyName}
+          </h1>
+          <p className="mt-0.5 text-xs text-neutral-500">{date}</p>
+        </div>
+        <a
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-medium text-white shadow-sm"
+          href="#quick"
+        >
+          <Plus className="size-4" />
+          메모
+        </a>
+      </div>
+    </header>
   );
 }
 
@@ -353,9 +380,11 @@ export default async function HomePage() {
 
   const data = await ensureHomeData(userId, session.user?.email);
 
+  const todayLabel = formatDate(new Date());
+
   return (
-    <main className="min-h-screen pb-24 lg:pb-0">
-      <div className="flex min-h-screen">
+    <main className="min-h-[100svh] overflow-x-hidden bg-stone-50 pb-24 lg:pb-0">
+      <div className="flex min-h-[100svh]">
         <aside className="hidden w-72 shrink-0 border-r border-stone-200 bg-white px-4 py-5 lg:block">
           <div className="px-2">
             <p className="text-sm font-semibold text-teal-700">
@@ -383,15 +412,16 @@ export default async function HomePage() {
           </nav>
         </aside>
 
-        <section className="min-w-0 flex-1">
+        <section className="min-w-0 flex-1" id="today">
+          <MobileHeader date={todayLabel} familyName={data.familyName} />
+
           <header
-            className="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/95 px-4 py-4 backdrop-blur md:px-8"
-            id="today"
+            className="sticky top-0 z-10 hidden border-b border-stone-200 bg-stone-50/95 px-4 py-4 backdrop-blur md:px-8 lg:block"
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-medium text-neutral-500">
-                  {formatDate(new Date())}
+                  {todayLabel}
                 </p>
                 <h2 className="text-2xl font-semibold tracking-tight">
                   오늘 있었던 일을 30초만 잡아두세요
@@ -410,8 +440,8 @@ export default async function HomePage() {
             </div>
           </header>
 
-          <div className="grid gap-6 px-4 py-6 md:px-8 xl:grid-cols-[1.08fr_0.92fr]">
-            <section className="space-y-6">
+          <div className="grid gap-4 py-3 sm:px-4 sm:py-6 md:px-8 lg:gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+            <section className="space-y-4 lg:space-y-6">
               <SectionShell
                 description="기억이 사라지기 전에 한 줄만 남깁니다."
                 id="quick"
@@ -424,7 +454,7 @@ export default async function HomePage() {
                 />
               </SectionShell>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="hidden gap-3 sm:grid sm:grid-cols-3">
                 {[
                   ["정리할 메모", data.stats.pendingCount, "아직 자세히 정리 전"],
                   ["새로 보인 반복", data.stats.newPatternCount, "최근 14일 기준"],
@@ -462,7 +492,7 @@ export default async function HomePage() {
               </SectionShell>
             </section>
 
-            <section className="space-y-6">
+            <section className="space-y-4 lg:space-y-6">
               <SectionShell id="recent" title="최근 메모">
                 <div className="mt-4 divide-y divide-stone-200">
                   {data.recentNotes.length === 0 ? (
@@ -472,14 +502,16 @@ export default async function HomePage() {
                   ) : (
                     data.recentNotes.map((note) => (
                       <div key={note.id} className="py-4 first:pt-0">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-medium">{note.quickText}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="break-keep text-[15px] font-medium leading-6 sm:text-base">
+                              {note.quickText}
+                            </p>
                             <p className="mt-1 text-sm text-neutral-500">
                               {note.label} · {note.observedAt}
                             </p>
                           </div>
-                          <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
+                          <span className="shrink-0 rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
                             {note.status}
                           </span>
                         </div>
@@ -498,14 +530,16 @@ export default async function HomePage() {
                   ) : (
                     data.repeatedPatterns.map((item) => (
                       <div key={item.id} className="py-4 first:pt-0">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-medium">{item.title}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="break-keep text-[15px] font-medium leading-6 sm:text-base">
+                              {item.title}
+                            </p>
                             <p className="mt-1 text-sm text-neutral-500">
                               {item.where} · {item.count}번
                             </p>
                           </div>
-                          <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
+                          <span className="shrink-0 rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
                             {item.state}
                           </span>
                         </div>
@@ -532,7 +566,7 @@ export default async function HomePage() {
                   ].map(([label, description]) => (
                     <div
                       key={label}
-                      className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2.5 text-left"
+                      className="grid gap-1 rounded-md border border-stone-200 px-3 py-2.5 text-left sm:flex sm:items-center sm:justify-between"
                     >
                       <span className="font-medium">{label}</span>
                       <span className="text-sm text-neutral-500">
@@ -544,7 +578,7 @@ export default async function HomePage() {
               </SectionShell>
 
               <SectionShell id="export" title="전문가에게 보여주기">
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-start sm:justify-end">
                   <button className="inline-flex items-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50">
                     <FileDown className="size-4" />
                     익명으로 저장
@@ -614,11 +648,11 @@ export default async function HomePage() {
             return (
               <a
                 key={item.label}
-                className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-medium text-neutral-600 hover:bg-stone-100 hover:text-teal-800"
+                className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-xs font-medium text-neutral-600 hover:bg-stone-100 hover:text-teal-800"
                 href={item.href}
               >
                 <Icon className="size-5" />
-                <span>{item.label}</span>
+                <span>{item.mobileLabel}</span>
               </a>
             );
           })}
