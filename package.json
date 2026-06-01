@@ -8,6 +8,7 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint",
+    "codex:report": "tsx scripts/codex-report.ts",
     "test:normalize": "tsx src/lib/cue-normalize.test.ts",
     "prisma:validate": "prisma validate",
     "prisma:deploy": "prisma migrate deploy"

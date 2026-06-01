@@ -18,6 +18,7 @@ npm install
 cp .env.example .env
 npm run prisma:validate
 npm run prisma:deploy
+npm run codex:report
 npm run test:normalize
 npm run dev
 ```
@@ -43,10 +44,21 @@ ALLOWED_EMAILS="mom@gmail.com,dad@gmail.com"
 ```bash
 npm run prisma:validate
 npm run prisma:deploy
+npm run codex:report -- --days=14 --limit=80
 npm run test:normalize
 npm run lint
 npm run build
 ```
+
+## Codex Report
+
+Codex가 DB를 직접 읽어 분석할 때는 아래 명령을 씁니다.
+
+```bash
+npm run codex:report -- --days=14 --limit=80
+```
+
+이 명령은 Neon/Postgres에서 관찰 기록을 읽어 `outputs/juha_observation_codex_report.md`에 저장합니다. 쓰기 작업은 하지 않습니다.
 
 ## Core Rules
 
