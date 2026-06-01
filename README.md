@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Juha Observation OS
 
-## Getting Started
+부모가 학교/놀이터에서 본 장면을 빠르게 붙잡고, 나중에 전문가에게 보여줄 수 있는 관찰 기록 앱입니다. v1의 목표는 아이에게 바로 연습을 시키는 것이 아니라, 실제 반에서 반복되는 단서와 반응을 데이터로 모으는 것입니다.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router
+- Vercel
+- Postgres or Neon
+- Prisma
+- Auth.js magic link
+- Tailwind CSS
+
+## Local Setup
 
 ```bash
+npm install
+cp .env.example .env
+npm run prisma:validate
+npm run test:normalize
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`postinstall`에서 `prisma generate`가 실행됩니다. Vercel에서는 환경변수를 먼저 연결한 뒤 배포하세요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required Env
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+DATABASE_URL="postgresql://..."
+AUTH_SECRET="generate-a-long-random-secret"
+NEXTAUTH_URL="http://localhost:3000"
+RESEND_API_KEY="re_..."
+EMAIL_FROM="Juha Observation OS <noreply@example.com>"
+```
 
-## Learn More
+## Review Commands
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run prisma:validate
+npm run test:normalize
+npm run lint
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Core Rules
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 화면에서는 부모가 바로 이해할 수 있는 말만 씁니다.
+- 단서 저장 키는 앱 코드의 `normalizeCueText`가 유일한 기준입니다.
+- 빈 단서는 저장하지 않습니다.
+- 새 단서가 생기면 전문가 판단 행을 함께 만듭니다.
+- 별칭은 `CueAlias`로 합칩니다.
+- 모든 쓰기는 로그인, 가족 구성원, `familyId` 일치를 확인해야 합니다.

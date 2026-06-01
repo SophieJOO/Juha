@@ -1,0 +1,293 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FamilyRole {
+  OWNER
+  PARENT
+}
+
+enum NoteStatus {
+  QUICK_ONLY
+  NEEDS_DETAILS
+  DETAILED
+}
+
+enum HelpLevel {
+  RED
+  YELLOW
+  GREEN
+}
+
+enum ExpertDecision {
+  UNREVIEWED
+  NEEDS_MORE_OBSERVATION
+  APPROVED
+  DO_NOT_TRAIN
+}
+
+enum PriorAgreement {
+  HEARD
+  NOT_HEARD
+  UNKNOWN
+}
+
+enum CueKind {
+  SPEECH
+  FACE_BODY
+  DISTANCE_POSITION
+  RULE_STATEMENT
+  PRIOR_AGREEMENT
+  TURN_ORDER
+  GROUP_REACTION
+  OTHER_OBSERVABLE
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+
+  accounts    Account[]
+  sessions    Session[]
+  memberships FamilyMember[]
+
+  @@map("users")
+}
+
+model Account {
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members        FamilyMember[]
+  invites        FamilyInvite[]
+  children       Child[]
+  situationKinds SituationKind[]
+  notes          ObservationNote[]
+  cueKeys        CueKey[]
+  cueAliases     CueAlias[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id        String     @id @default(cuid())
+  familyId  String     @map("family_id")
+  userId    String     @map("user_id")
+  name      String
+  role      FamilyRole @default(PARENT)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdNotes ObservationNote[] @relation("ObservationCreatedBy")
+
+  @@unique([familyId, userId])
+  @@index([userId])
+  @@map("family_members")
+}
+
+model FamilyInvite {
+  id         String    @id @default(cuid())
+  familyId   String    @map("family_id")
+  email      String
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([email])
+  @@map("family_invites")
+}
+
+model Child {
+  id          String   @id @default(cuid())
+  familyId    String   @map("family_id")
+  displayName String   @map("display_name")
+  schoolYear  String?  @map("school_year")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  notesList ObservationNote[]
+
+  @@map("children")
+}
+
+model SituationKind {
+  id                String    @id @default(cuid())
+  familyId          String    @map("family_id")
+  code              String
+  label             String
+  userFacingLabel   String    @map("user_facing_label")
+  expertCheckDefault Boolean  @default(false) @map("expert_check_default")
+  sortOrder         Int       @default(0) @map("sort_order")
+  archivedAt        DateTime? @map("archived_at")
+
+  family     Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  notes      ObservationNote[]
+  cueKeys    CueKey[]
+  cueAliases CueAlias[]
+
+  @@unique([familyId, code])
+  @@index([familyId, sortOrder])
+  @@map("situation_kinds")
+}
+
+model CueKey {
+  id              String   @id @default(cuid())
+  familyId        String   @map("family_id")
+  situationKindId String   @map("situation_kind_id")
+  normalizedText  String   @map("normalized_text")
+  displayText     String   @map("display_text")
+  firstSeenAt     DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt      DateTime @default(now()) @map("last_seen_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  family        Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  situationKind SituationKind @relation(fields: [situationKindId], references: [id], onDelete: Cascade)
+  observations  ObservationDetail[]
+  review        ExpertReview?
+  aliases       CueAlias[] @relation("CanonicalCueAliases")
+
+  @@unique([familyId, situationKindId, normalizedText])
+  @@index([familyId, situationKindId])
+  @@map("cue_keys")
+}
+
+model CueAlias {
+  id                  String   @id @default(cuid())
+  familyId            String   @map("family_id")
+  situationKindId     String   @map("situation_kind_id")
+  aliasText           String   @map("alias_text")
+  aliasNormalizedText String   @map("alias_normalized_text")
+  canonicalCueKeyId   String   @map("canonical_cue_key_id")
+  note                String?
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  family          Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  situationKind   SituationKind @relation(fields: [situationKindId], references: [id], onDelete: Cascade)
+  canonicalCueKey CueKey        @relation("CanonicalCueAliases", fields: [canonicalCueKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, situationKindId, aliasNormalizedText])
+  @@index([canonicalCueKeyId])
+  @@map("cue_aliases")
+}
+
+model ObservationNote {
+  id                  String     @id @default(cuid())
+  familyId            String     @map("family_id")
+  childId             String     @map("child_id")
+  createdByMemberId   String?    @map("created_by_member_id")
+  observedAt          DateTime   @map("observed_at")
+  locationLabel       String?    @map("location_label")
+  situationKindId     String?    @map("situation_kind_id")
+  otherSituationLabel String?    @map("other_situation_label")
+  quickText           String     @map("quick_text")
+  status              NoteStatus @default(QUICK_ONLY)
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  family        Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  child         Child          @relation(fields: [childId], references: [id], onDelete: Cascade)
+  createdBy     FamilyMember?  @relation("ObservationCreatedBy", fields: [createdByMemberId], references: [id])
+  situationKind SituationKind? @relation(fields: [situationKindId], references: [id])
+  detail        ObservationDetail?
+
+  @@index([familyId, observedAt])
+  @@index([familyId, situationKindId])
+  @@map("observation_notes")
+}
+
+model ObservationDetail {
+  id                  String         @id @default(cuid())
+  noteId              String         @unique @map("note_id")
+  cueKeyId            String         @map("cue_key_id")
+  priorAgreement      PriorAgreement @default(UNKNOWN) @map("prior_agreement")
+  priorAgreementQuote String?        @map("prior_agreement_quote")
+  cueRawText          String         @map("cue_raw_text")
+  cueKind             CueKind?       @map("cue_kind")
+  cueObservedText     String?        @map("cue_observed_text")
+  childActionText     String?        @map("child_action_text")
+  peerSpeechText      String?        @map("peer_speech_text")
+  peerBodyText        String?        @map("peer_body_text")
+  endingText          String?        @map("ending_text")
+  helpLevel           HelpLevel?     @map("help_level")
+  askExpert           Boolean        @default(false) @map("ask_expert")
+  parentThoughts      String?        @map("parent_thoughts")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  note   ObservationNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  cueKey CueKey          @relation(fields: [cueKeyId], references: [id])
+
+  @@index([cueKeyId])
+  @@map("observation_details")
+}
+
+model ExpertReview {
+  id         String         @id @default(cuid())
+  cueKeyId   String         @unique @map("cue_key_id")
+  decision   ExpertDecision @default(UNREVIEWED)
+  expertNote String?        @map("expert_note")
+  reviewedAt DateTime?      @map("reviewed_at")
+  reviewedBy String?        @map("reviewed_by")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  cueKey CueKey @relation(fields: [cueKeyId], references: [id], onDelete: Cascade)
+
+  @@map("expert_reviews")
+}
