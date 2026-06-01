@@ -16,6 +16,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { DetailForm, QuickNoteForm } from "@/app/home-forms";
+import { CodexReportButton } from "@/app/report-button";
 import { isExplicitlyAllowedEmail } from "@/lib/allowed-emails";
 import { DEFAULT_SITUATION_KINDS } from "@/lib/default-situation-kinds";
 import { createFamilyWithDefaults } from "@/lib/family-service";
@@ -578,11 +579,11 @@ export default async function HomePage() {
               </SectionShell>
 
               <SectionShell id="export" title="전문가에게 보여주기">
-                <div className="mt-4 flex justify-start sm:justify-end">
-                  <button className="inline-flex items-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50">
-                    <FileDown className="size-4" />
-                    익명으로 저장
-                  </button>
+                <div className="mt-4 grid gap-3 sm:flex sm:items-start sm:justify-between">
+                  <p className="text-sm leading-6 text-neutral-500">
+                    최근 14일 기록을 Markdown으로 만들어 내려받습니다.
+                  </p>
+                  <CodexReportButton />
                 </div>
 
                 <div className="mt-4 overflow-x-auto rounded-md border border-stone-200">
