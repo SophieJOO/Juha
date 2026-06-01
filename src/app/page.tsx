@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
-import { DetailForm, QuickNoteForm } from "@/app/home-forms";
+import { DetailForm, QuickNoteForm, RecorderNameForm } from "@/app/home-forms";
 import { CodexReportButton } from "@/app/report-button";
 import { isExplicitlyAllowedEmail } from "@/lib/allowed-emails";
 import {
@@ -45,6 +45,8 @@ type HomeData = {
   childId: string;
   familyName: string;
   childName: string;
+  currentMemberName: string;
+  currentMemberEmail: string | null;
   situationKinds: { id: string; label: string }[];
   pendingNotes: { id: string; label: string; quickText: string }[];
   recordRows: {
@@ -56,6 +58,7 @@ type HomeData = {
     status: string;
     detailText: string | null;
     askExpert: boolean;
+    recorderName: string;
   }[];
   repeatedPatterns: {
     id: string;
@@ -135,6 +138,15 @@ function situationLabel(note: {
   return other ? `${base} · ${other}` : base;
 }
 
+function recorderLabel(note: {
+  createdBy?: {
+    name: string;
+    user?: { email: string | null } | null;
+  } | null;
+}) {
+  return note.createdBy?.name?.trim() || note.createdBy?.user?.email || "기록자 없음";
+}
+
 function reviewLabel(decision: string) {
   if (decision === "APPROVED") {
     return "연습에 써도 됨";
@@ -171,7 +183,12 @@ function helpLevelSummary(levels: Array<string | null>) {
   return parts.length ? parts.join(" / ") : "아직 없음";
 }
 
-async function ensureHomeData(userId: string, email?: string | null) {
+async function ensureHomeData(
+  userId: string,
+  user?: { email?: string | null; name?: string | null },
+) {
+  const email = user?.email;
+  const defaultMemberName = user?.name ?? email ?? "부모";
   let member = await prisma.familyMember.findFirst({
     where: { userId },
     orderBy: { createdAt: "asc" },
@@ -197,18 +214,18 @@ async function ensureHomeData(userId: string, email?: string | null) {
         create: {
           familyId: existingFamily.id,
           userId,
-          name: email ?? "부모",
+          name: defaultMemberName,
           role: "PARENT",
         },
         update: {
-          name: email ?? "부모",
+          name: defaultMemberName,
         },
       });
       member = { familyId: existingFamily.id };
     } else {
       const family = await createFamilyWithDefaults({
         ownerUserId: userId,
-        ownerName: email ?? "부모",
+        ownerName: defaultMemberName,
         familyName: "주하 가족",
         childName: "주하",
       });
@@ -218,28 +235,36 @@ async function ensureHomeData(userId: string, email?: string | null) {
 
   const familyId = member.familyId;
 
-  const [family, initialChildren, initialSituationKinds] = await Promise.all([
-    prisma.family.findUniqueOrThrow({
-      where: { id: familyId },
-      select: { name: true },
-    }),
-    prisma.child.findMany({
-      where: { familyId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, displayName: true },
-    }),
-    prisma.situationKind.findMany({
-      where: { familyId },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        id: true,
-        code: true,
-        userFacingLabel: true,
-        sortOrder: true,
-        archivedAt: true,
-      },
-    }),
-  ]);
+  const [family, currentMember, initialChildren, initialSituationKinds] =
+    await Promise.all([
+      prisma.family.findUniqueOrThrow({
+        where: { id: familyId },
+        select: { name: true },
+      }),
+      prisma.familyMember.findFirstOrThrow({
+        where: { familyId, userId },
+        select: {
+          name: true,
+          user: { select: { email: true } },
+        },
+      }),
+      prisma.child.findMany({
+        where: { familyId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, displayName: true },
+      }),
+      prisma.situationKind.findMany({
+        where: { familyId },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          code: true,
+          userFacingLabel: true,
+          sortOrder: true,
+          archivedAt: true,
+        },
+      }),
+    ]);
 
   let children = initialChildren;
   let situationKinds = initialSituationKinds.filter((kind) => !kind.archivedAt);
@@ -284,6 +309,12 @@ async function ensureHomeData(userId: string, email?: string | null) {
         locationLabel: true,
         otherSituationLabel: true,
         situationKind: { select: { userFacingLabel: true } },
+        createdBy: {
+          select: {
+            name: true,
+            user: { select: { email: true } },
+          },
+        },
         detail: { select: { id: true, cueRawText: true, askExpert: true } },
       },
     }),
@@ -313,7 +344,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
     .map((note) => ({
       id: note.id,
       quickText: note.quickText,
-      label: `${situationLabel(note)} · ${note.quickText.slice(0, 34)}`,
+      label: `${situationLabel(note)} · ${recorderLabel(note)} · ${note.quickText.slice(0, 34)}`,
     }));
 
   const repeatedPatterns = cueKeys
@@ -335,6 +366,8 @@ async function ensureHomeData(userId: string, email?: string | null) {
     childId: children[0].id,
     familyName: family.name,
     childName: children[0].displayName,
+    currentMemberName: currentMember.name,
+    currentMemberEmail: currentMember.user.email,
     situationKinds: situationKinds.map((kind) => ({
       id: kind.id,
       label: kind.userFacingLabel,
@@ -349,6 +382,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
       status: note.detail ? "자세히 정리됨" : "정리 전",
       detailText: note.detail?.cueRawText ?? null,
       askExpert: note.detail?.askExpert ?? false,
+      recorderName: recorderLabel(note),
     })),
     repeatedPatterns,
     stats: {
@@ -449,7 +483,7 @@ export default async function HomePage() {
     return <LoginRequired />;
   }
 
-  const data = await ensureHomeData(userId, session.user?.email);
+  const data = await ensureHomeData(userId, session.user);
 
   const now = new Date();
   const todayLabel = formatDate(now);
@@ -594,6 +628,7 @@ export default async function HomePage() {
                               {note.locationLabel ? (
                                 <span>{note.locationLabel}</span>
                               ) : null}
+                              <span>기록: {note.recorderName}</span>
                             </div>
                             {note.detailText ? (
                               <p className="mt-2 text-sm leading-5 text-neutral-600">
@@ -713,7 +748,13 @@ export default async function HomePage() {
               </SectionShell>
 
               <SectionShell id="settings" title="설정">
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <RecorderNameForm
+                  currentEmail={data.currentMemberEmail}
+                  currentName={data.currentMemberName}
+                  familyId={data.familyId}
+                />
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <button className="inline-flex items-center gap-2 rounded-md border border-stone-300 px-3 py-2.5 text-sm font-medium hover:bg-stone-50">
                     <Users className="size-4" />
                     함께 기록할 사람

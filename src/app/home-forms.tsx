@@ -2,7 +2,11 @@
 
 import { useActionState, useEffect, useMemo, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
-import { createQuickNote, saveDetailedObservation } from "@/app/actions";
+import {
+  createQuickNote,
+  saveDetailedObservation,
+  updateRecorderName,
+} from "@/app/actions";
 
 type ActionState = {
   ok: boolean;
@@ -299,6 +303,59 @@ export function DetailForm({
       >
         {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
         자세히 정리 저장
+      </button>
+
+      <ActionMessage state={state} />
+    </form>
+  );
+}
+
+export function RecorderNameForm({
+  familyId,
+  currentName,
+  currentEmail,
+}: {
+  familyId: string;
+  currentName: string;
+  currentEmail?: string | null;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    updateRecorderName,
+    initialState,
+  );
+
+  return (
+    <form action={formAction} className="mt-4 grid gap-3">
+      <input name="familyId" type="hidden" value={familyId} />
+
+      <label className="grid gap-2 text-sm font-medium text-neutral-700">
+        내 기록 이름
+        <input
+          className="rounded-md border border-stone-300 px-3 py-3 text-base outline-none ring-teal-600 transition focus:ring-2"
+          defaultValue={currentName}
+          list="recorder-name-options"
+          name="recorderName"
+          placeholder="예: 엄마, 아빠"
+          required
+        />
+      </label>
+      <datalist id="recorder-name-options">
+        <option value="엄마" />
+        <option value="아빠" />
+      </datalist>
+
+      {currentEmail ? (
+        <p className="text-sm leading-5 text-neutral-500">
+          로그인 계정: {currentEmail}
+        </p>
+      ) : null}
+
+      <button
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-neutral-900 px-3 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+        disabled={isPending}
+      >
+        {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+        내 이름 저장
       </button>
 
       <ActionMessage state={state} />

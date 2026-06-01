@@ -47,6 +47,15 @@ function situationLabel(note: {
   return other ? `${base} · ${other}` : base;
 }
 
+function recorderLabel(note: {
+  createdBy?: {
+    name: string;
+    user?: { email: string | null } | null;
+  } | null;
+}) {
+  return note.createdBy?.name?.trim() || note.createdBy?.user?.email || "기록자 없음";
+}
+
 function countBy<T>(items: T[], keyFn: (item: T) => string) {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -105,6 +114,12 @@ export async function buildCodexReport(
       family: { select: { name: true } },
       child: { select: { displayName: true } },
       situationKind: { select: { userFacingLabel: true } },
+      createdBy: {
+        select: {
+          name: true,
+          user: { select: { email: true } },
+        },
+      },
       detail: {
         include: {
           cueKey: {
@@ -139,6 +154,12 @@ export async function buildCodexReport(
               observedAt: true,
               quickText: true,
               locationLabel: true,
+              createdBy: {
+                select: {
+                  name: true,
+                  user: { select: { email: true } },
+                },
+              },
             },
           },
         },
@@ -152,8 +173,9 @@ export async function buildCodexReport(
   );
   const situationCounts = countBy(
     notes,
-    (note) => note.situationKind?.userFacingLabel ?? "기타",
+    (note) => situationLabel(note),
   );
+  const recorderCounts = countBy(notes, (note) => recorderLabel(note));
   const mindGuessNotes = detailedNotes.filter((note) =>
     hasMindGuess(
       [
@@ -195,6 +217,17 @@ export async function buildCodexReport(
   lines.push(`- 반복해서 나온 것: ${cueKeys.length}개`);
   lines.push(`- 전문가에게 물어볼 표시: ${askExpertDetails.length}건`);
   lines.push(`- 속마음 추측 표현 재확인 후보: ${mindGuessNotes.length}건`);
+  lines.push("");
+
+  lines.push("## 누가 기록했나");
+  lines.push("");
+  if (recorderCounts.length === 0) {
+    lines.push("- 아직 기록이 없습니다.");
+  } else {
+    for (const [label, count] of recorderCounts) {
+      lines.push(`- ${label}: ${count}건`);
+    }
+  }
   lines.push("");
 
   lines.push("## 무슨 일이 많았나");
@@ -240,7 +273,7 @@ export async function buildCodexReport(
         lines.push(
           `  - ${formatDate(observation.note.observedAt)} · ${clean(
             observation.note.locationLabel,
-          )} · ${observation.note.quickText}`,
+          )} · ${recorderLabel(observation.note)} · ${observation.note.quickText}`,
         );
       }
       lines.push("");
@@ -258,6 +291,7 @@ export async function buildCodexReport(
       lines.push("");
       lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
+      lines.push(`- 기록한 사람: ${recorderLabel(note)}`);
       lines.push(`- 상태: ${note.detail ? "자세히 정리됨" : "정리 전"}`);
       lines.push(`- 30초 메모: ${note.quickText}`);
       lines.push("");
@@ -278,6 +312,7 @@ export async function buildCodexReport(
       lines.push("");
       lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
+      lines.push(`- 기록한 사람: ${recorderLabel(note)}`);
       lines.push(`- 30초 메모: ${note.quickText}`);
       lines.push(bullet("그때 보인 것", detail.cueRawText));
       lines.push(bullet("보인 것 추가", detail.cueObservedText));

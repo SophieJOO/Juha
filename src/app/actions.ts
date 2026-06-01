@@ -24,6 +24,15 @@ const quickNoteSchema = z.object({
   locationLabel: z.string().trim().optional(),
 });
 
+const recorderNameSchema = z.object({
+  familyId: z.string().min(1),
+  recorderName: z
+    .string()
+    .trim()
+    .min(1, "기록 이름을 적어주세요.")
+    .max(20, "기록 이름은 20자 이내로 적어주세요."),
+});
+
 function optionalText(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -126,6 +135,27 @@ export async function createQuickNote(
       ok: true,
       message: "저장했어요. 나중에 자세히 정리할 수 있습니다.",
     };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function updateRecorderName(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const input = recorderNameSchema.parse(Object.fromEntries(formData));
+    const member = await requireFamilyMember(input.familyId);
+
+    await prisma.familyMember.update({
+      where: { id: member.id },
+      data: { name: input.recorderName },
+    });
+
+    revalidatePath("/");
+
+    return { ok: true, message: "앞으로 이 이름으로 기록자가 표시됩니다." };
   } catch (error) {
     return toActionError(error);
   }
