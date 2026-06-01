@@ -17,6 +17,7 @@
 npm install
 cp .env.example .env
 npm run prisma:validate
+npm run prisma:deploy
 npm run test:normalize
 npm run dev
 ```
@@ -37,6 +38,7 @@ EMAIL_FROM="Juha Observation OS <noreply@example.com>"
 
 ```bash
 npm run prisma:validate
+npm run prisma:deploy
 npm run test:normalize
 npm run lint
 npm run build

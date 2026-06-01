@@ -9,7 +9,8 @@
     "postinstall": "prisma generate",
     "lint": "eslint",
     "test:normalize": "tsx src/lib/cue-normalize.test.ts",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
