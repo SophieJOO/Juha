@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "주하 관찰 OS",
-  description: "부모가 함께 쓰는 학교생활 관찰 기록",
+  description: "부모가 함께 쓰는 학교, 집, 일상 관찰 기록",
   manifest: "/manifest.webmanifest",
 };
 

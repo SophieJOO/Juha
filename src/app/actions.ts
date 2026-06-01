@@ -20,6 +20,7 @@ const quickNoteSchema = z.object({
   observedAt: z.coerce.date().optional(),
   observedDate: z.string().trim().optional(),
   observedTime: z.string().trim().optional(),
+  otherSituationLabel: z.string().trim().optional(),
   locationLabel: z.string().trim().optional(),
 });
 
@@ -113,6 +114,7 @@ export async function createQuickNote(
         situationKindId: input.situationKindId,
         observedAt: parseObservedAt(input),
         locationLabel: optionalText(input.locationLabel),
+        otherSituationLabel: optionalText(input.otherSituationLabel),
         quickText: input.quickText,
         status: "QUICK_ONLY",
       },
@@ -182,7 +184,7 @@ export async function saveDetailedObservation(
       return {
         ok: false,
         message:
-          "마음을 추측한 말일 수 있어요. 친구가 실제로 한 말, 표정, 몸 움직임, 자리를 떠났는지로 바꿔 적어주세요.",
+          "마음을 추측한 말일 수 있어요. 상대가 실제로 한 말, 표정, 몸 움직임, 자리를 떠났는지로 바꿔 적어주세요.",
       };
     }
 

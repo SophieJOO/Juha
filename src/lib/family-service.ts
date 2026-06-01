@@ -2,6 +2,81 @@ import crypto from "node:crypto";
 import { DEFAULT_SITUATION_KINDS } from "@/lib/default-situation-kinds";
 import { prisma } from "@/lib/prisma";
 
+export async function syncDefaultSituationKinds(familyId: string) {
+  const defaultCodes = DEFAULT_SITUATION_KINDS.map((kind) => kind.code);
+
+  await prisma.$transaction(
+    [
+      ...DEFAULT_SITUATION_KINDS.map((kind, index) =>
+        prisma.situationKind.upsert({
+          where: {
+            familyId_code: {
+              familyId,
+              code: kind.code,
+            },
+          },
+          create: {
+            familyId,
+            code: kind.code,
+            label: kind.label,
+            userFacingLabel: kind.userFacingLabel,
+            expertCheckDefault: kind.expertCheckDefault,
+            sortOrder: index,
+          },
+          update: {
+            label: kind.label,
+            userFacingLabel: kind.userFacingLabel,
+            expertCheckDefault: kind.expertCheckDefault,
+            sortOrder: index,
+            archivedAt: null,
+          },
+        }),
+      ),
+      prisma.situationKind.updateMany({
+        where: {
+          familyId,
+          archivedAt: null,
+          code: { notIn: defaultCodes },
+        },
+        data: { archivedAt: new Date() },
+      }),
+    ],
+  );
+}
+
+export function needsDefaultSituationKindSync(
+  situationKinds: Array<{
+    code: string;
+    userFacingLabel: string;
+    sortOrder: number;
+    archivedAt: Date | null;
+  }>,
+) {
+  const currentByCode = new Map(
+    situationKinds.map((kind) => [kind.code, kind]),
+  );
+  const defaultCodes = new Set<string>(
+    DEFAULT_SITUATION_KINDS.map((kind) => kind.code),
+  );
+
+  const hasMissingOrChangedDefault = DEFAULT_SITUATION_KINDS.some((kind, index) => {
+    const current = currentByCode.get(kind.code);
+
+    return (
+      !current ||
+      current.userFacingLabel !== kind.userFacingLabel ||
+      current.sortOrder !== index ||
+      current.archivedAt !== null
+    );
+  });
+
+  const hasExtraActiveKind = situationKinds.some(
+    (kind) => kind.archivedAt === null && !defaultCodes.has(kind.code),
+  );
+
+  return hasMissingOrChangedDefault || hasExtraActiveKind;
+}
+
 export async function createFamilyWithDefaults(input: {
   ownerUserId: string;
   ownerName: string;

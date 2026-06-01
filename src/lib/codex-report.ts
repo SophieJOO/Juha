@@ -37,6 +37,16 @@ function helpLevelLabel(level?: string | null) {
   return "미분류";
 }
 
+function situationLabel(note: {
+  otherSituationLabel?: string | null;
+  situationKind?: { userFacingLabel: string } | null;
+}) {
+  const base = note.situationKind?.userFacingLabel ?? "기타";
+  const other = note.otherSituationLabel?.trim();
+
+  return other ? `${base} · ${other}` : base;
+}
+
 function countBy<T>(items: T[], keyFn: (item: T) => string) {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -246,7 +256,7 @@ export async function buildCodexReport(
     for (const note of notes) {
       lines.push(`### ${formatDate(note.observedAt)}`);
       lines.push("");
-      lines.push(`- 무슨 일: ${note.situationKind?.userFacingLabel ?? "기타"}`);
+      lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
       lines.push(`- 상태: ${note.detail ? "자세히 정리됨" : "정리 전"}`);
       lines.push(`- 30초 메모: ${note.quickText}`);
@@ -266,14 +276,14 @@ export async function buildCodexReport(
 
       lines.push(`### ${formatDate(note.observedAt)} · ${detail.cueRawText}`);
       lines.push("");
-      lines.push(`- 무슨 일: ${note.situationKind?.userFacingLabel ?? "기타"}`);
+      lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
       lines.push(`- 30초 메모: ${note.quickText}`);
       lines.push(bullet("그때 보인 것", detail.cueRawText));
       lines.push(bullet("보인 것 추가", detail.cueObservedText));
       lines.push(bullet("주하 행동", detail.childActionText));
-      lines.push(bullet("친구 말", detail.peerSpeechText));
-      lines.push(bullet("친구 표정/몸/자리", detail.peerBodyText));
+      lines.push(bullet("상대 말", detail.peerSpeechText));
+      lines.push(bullet("상대 표정/몸/자리", detail.peerBodyText));
       lines.push(bullet("어떻게 끝났나", detail.endingText));
       lines.push(bullet("부모 생각 메모", detail.parentThoughts));
       lines.push(`- 도움 필요 정도: ${helpLevelLabel(detail.helpLevel)}`);

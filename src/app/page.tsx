@@ -18,8 +18,11 @@ import { auth } from "@/auth";
 import { DetailForm, QuickNoteForm } from "@/app/home-forms";
 import { CodexReportButton } from "@/app/report-button";
 import { isExplicitlyAllowedEmail } from "@/lib/allowed-emails";
-import { DEFAULT_SITUATION_KINDS } from "@/lib/default-situation-kinds";
-import { createFamilyWithDefaults } from "@/lib/family-service";
+import {
+  createFamilyWithDefaults,
+  needsDefaultSituationKindSync,
+  syncDefaultSituationKinds,
+} from "@/lib/family-service";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -122,6 +125,16 @@ function formatRecordDate(date: Date) {
   }).format(date);
 }
 
+function situationLabel(note: {
+  otherSituationLabel?: string | null;
+  situationKind?: { userFacingLabel: string } | null;
+}) {
+  const base = note.situationKind?.userFacingLabel ?? "기타";
+  const other = note.otherSituationLabel?.trim();
+
+  return other ? `${base} · ${other}` : base;
+}
+
 function reviewLabel(decision: string) {
   if (decision === "APPROVED") {
     return "연습에 써도 됨";
@@ -216,14 +229,20 @@ async function ensureHomeData(userId: string, email?: string | null) {
       select: { id: true, displayName: true },
     }),
     prisma.situationKind.findMany({
-      where: { familyId, archivedAt: null },
+      where: { familyId },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, code: true, userFacingLabel: true },
+      select: {
+        id: true,
+        code: true,
+        userFacingLabel: true,
+        sortOrder: true,
+        archivedAt: true,
+      },
     }),
   ]);
 
   let children = initialChildren;
-  let situationKinds = initialSituationKinds;
+  let situationKinds = initialSituationKinds.filter((kind) => !kind.archivedAt);
 
   if (children.length === 0) {
     const child = await prisma.child.create({
@@ -233,22 +252,21 @@ async function ensureHomeData(userId: string, email?: string | null) {
     children = [child];
   }
 
-  if (situationKinds.length === 0) {
-    await prisma.situationKind.createMany({
-      data: DEFAULT_SITUATION_KINDS.map((kind, index) => ({
-        familyId,
-        code: kind.code,
-        label: kind.label,
-        userFacingLabel: kind.userFacingLabel,
-        expertCheckDefault: kind.expertCheckDefault,
-        sortOrder: index,
-      })),
-      skipDuplicates: true,
-    });
+  if (
+    initialSituationKinds.length === 0 ||
+    needsDefaultSituationKindSync(initialSituationKinds)
+  ) {
+    await syncDefaultSituationKinds(familyId);
     situationKinds = await prisma.situationKind.findMany({
       where: { familyId, archivedAt: null },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, code: true, userFacingLabel: true },
+      select: {
+        id: true,
+        code: true,
+        userFacingLabel: true,
+        sortOrder: true,
+        archivedAt: true,
+      },
     });
   }
 
@@ -264,6 +282,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
         quickText: true,
         observedAt: true,
         locationLabel: true,
+        otherSituationLabel: true,
         situationKind: { select: { userFacingLabel: true } },
         detail: { select: { id: true, cueRawText: true, askExpert: true } },
       },
@@ -294,7 +313,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
     .map((note) => ({
       id: note.id,
       quickText: note.quickText,
-      label: `${note.situationKind?.userFacingLabel ?? "기타"} · ${note.quickText.slice(0, 34)}`,
+      label: `${situationLabel(note)} · ${note.quickText.slice(0, 34)}`,
     }));
 
   const repeatedPatterns = cueKeys
@@ -324,7 +343,7 @@ async function ensureHomeData(userId: string, email?: string | null) {
     recordRows: notes.map((note) => ({
       id: note.id,
       quickText: note.quickText,
-      label: note.situationKind?.userFacingLabel ?? "기타",
+      label: situationLabel(note),
       observedAt: formatRecordDate(note.observedAt),
       locationLabel: note.locationLabel,
       status: note.detail ? "자세히 정리됨" : "정리 전",
@@ -354,7 +373,7 @@ function LoginRequired() {
           가족 기록 공간에 들어가세요
         </h1>
         <p className="mt-3 text-sm leading-6 text-neutral-600">
-          부모가 함께 학교생활 장면을 기록하고, 반복해서 나온 것을 상담 때
+          부모가 함께 학교, 집, 일상 장면을 기록하고, 반복해서 나온 것을 상담 때
           바로 보여줄 수 있게 모읍니다.
         </p>
         <Link
@@ -498,7 +517,7 @@ export default async function HomePage() {
           <div className="grid gap-4 py-3 sm:px-4 sm:py-6 md:px-8 lg:gap-6 xl:grid-cols-[1.08fr_0.92fr]">
             <section className="space-y-4 lg:space-y-6">
               <SectionShell
-                description="기억이 사라지기 전에 한 줄만 남깁니다."
+                description="기억이 사라지기 전에 생활 장면을 한 줄만 남깁니다."
                 id="quick"
                 title="30초 메모"
               >
@@ -538,8 +557,9 @@ export default async function HomePage() {
                 <div className="mt-4 flex items-start gap-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-900">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                   <p>
-                    혼자 노는 장면은 실패로 보지 않습니다. 반복해서 나온
-                    장면을 먼저 모으고, 연습 여부는 전문가 확인 뒤에 정합니다.
+                    혼자 있는 장면이나 익숙한 방식을 바로 문제로 보지 않습니다.
+                    반복해서 나온 장면을 먼저 모으고, 연습 여부는 전문가 확인
+                    뒤에 정합니다.
                   </p>
                 </div>
                 <DetailForm
