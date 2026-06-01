@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { normalizeCueText } from "@/lib/cue-normalize";
+import { looksLikeMindReading, normalizeCueText } from "@/lib/cue-normalize";
 
 const sameCases = [
   ["친구가 한 번 더 제안", "친구가 한번더 제안"],
@@ -22,5 +22,7 @@ assert.notEqual(
 
 assert.equal(normalizeCueText("ＡＢ１２"), "ab12");
 assert.equal(normalizeCueText("  　！!?., "), "");
+assert.equal(looksLikeMindReading("친구가 기분 나빠 보였다"), true);
+assert.equal(looksLikeMindReading("친구가 자리를 떠났다"), false);
 
 console.log("normalizeCueText checks passed");

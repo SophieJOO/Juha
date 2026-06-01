@@ -23,17 +23,26 @@ export function assertCueText(input: string): string {
 }
 
 export function looksLikeMindReading(input: string): boolean {
+  const normalizedInput = input.normalize("NFKC").toLowerCase();
   const patterns = [
     "기분 나빠",
+    "기분나빠",
     "싫어했다",
     "싫어한",
+    "싫어하는",
+    "싫어 보",
+    "화난",
+    "화가 난",
+    "짜증",
     "무시",
     "피했다",
     "피한",
-    "얄미워",
+    "얄밉",
     "일부러",
+    "삐졌",
+    "서운",
     "분위기가 이상",
   ];
 
-  return patterns.some((pattern) => input.includes(pattern));
+  return patterns.some((pattern) => normalizedInput.includes(pattern));
 }
