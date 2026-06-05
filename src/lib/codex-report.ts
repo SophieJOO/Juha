@@ -37,6 +37,12 @@ function helpLevelLabel(level?: string | null) {
   return "미분류";
 }
 
+function observationKindLabel(kind?: string | null) {
+  if (kind === "POSITIVE") return "잘 된 순간";
+  if (kind === "NEUTRAL") return "그냥 있었던 일";
+  return "부딪힘";
+}
+
 function situationLabel(note: {
   otherSituationLabel?: string | null;
   situationKind?: { userFacingLabel: string } | null;
@@ -64,6 +70,18 @@ function countBy<T>(items: T[], keyFn: (item: T) => string) {
   }
 
   return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function stressScoreSummary(items: Array<{ helpLevel: string | null }>) {
+  if (items.length === 0) return "0.0";
+
+  const score = items.reduce((sum, item) => {
+    if (item.helpLevel === "RED") return sum + 2;
+    if (item.helpLevel === "YELLOW") return sum + 1;
+    return sum;
+  }, 0);
+
+  return (score / items.length).toFixed(1);
 }
 
 function hasMindGuess(text: string) {
@@ -152,6 +170,7 @@ export async function buildCodexReport(
           note: {
             select: {
               observedAt: true,
+              kind: true,
               quickText: true,
               locationLabel: true,
               createdBy: {
@@ -175,11 +194,15 @@ export async function buildCodexReport(
     notes,
     (note) => situationLabel(note),
   );
+  const kindCounts = countBy(notes, (note) => observationKindLabel(note.kind));
   const recorderCounts = countBy(notes, (note) => recorderLabel(note));
   const mindGuessNotes = detailedNotes.filter((note) =>
     hasMindGuess(
       [
         note.detail?.cueRawText,
+        note.detail?.antecedentText,
+        note.detail?.earlySignText,
+        note.detail?.selfRegulationText,
         note.detail?.cueObservedText,
         note.detail?.childActionText,
         note.detail?.peerSpeechText,
@@ -219,6 +242,17 @@ export async function buildCodexReport(
   lines.push(`- 속마음 추측 표현 재확인 후보: ${mindGuessNotes.length}건`);
   lines.push("");
 
+  lines.push("## 어떤 기록이었나");
+  lines.push("");
+  if (kindCounts.length === 0) {
+    lines.push("- 아직 기록이 없습니다.");
+  } else {
+    for (const [label, count] of kindCounts) {
+      lines.push(`- ${label}: ${count}건`);
+    }
+  }
+  lines.push("");
+
   lines.push("## 누가 기록했나");
   lines.push("");
   if (recorderCounts.length === 0) {
@@ -247,19 +281,28 @@ export async function buildCodexReport(
     lines.push("- 아직 자세히 정리된 반복 기록이 없습니다.");
   } else {
     for (const cueKey of cueKeys) {
-      const helpCounts = countBy(cueKey.observations, (item) =>
+      const incidentObservations = cueKey.observations.filter(
+        (item) => item.note.kind === "INCIDENT",
+      );
+      const helpCounts = countBy(incidentObservations, (item) =>
         helpLevelLabel(item.helpLevel),
       );
+      const earlySignCount = incidentObservations.filter((item) =>
+        item.earlySignText?.trim(),
+      ).length;
       lines.push(`### ${cueKey.displayText} (${cueKey.observations.length}건)`);
       lines.push("");
       lines.push(`- 무슨 일: ${cueKey.situationKind.userFacingLabel}`);
       lines.push(`- 현재 판단: ${reviewLabel(cueKey.review?.decision)}`);
+      lines.push(`- 부딪힘 기록: ${incidentObservations.length}건`);
       lines.push(
         `- 도움 필요 정도: ${
           helpCounts.map(([label, count]) => `${label} ${count}`).join(" / ") ||
           "없음"
         }`,
       );
+      lines.push(`- 격상점수: ${stressScoreSummary(incidentObservations)}`);
+      lines.push(`- 맨 처음 보인 모습 기록: ${earlySignCount}건`);
       lines.push(
         `- 전문가에게 물어볼 표시: ${
           cueKey.observations.filter((item) => item.askExpert).length
@@ -271,7 +314,9 @@ export async function buildCodexReport(
       lines.push("- 최근 예시:");
       for (const observation of cueKey.observations.slice(0, 3)) {
         lines.push(
-          `  - ${formatDate(observation.note.observedAt)} · ${clean(
+          `  - ${formatDate(observation.note.observedAt)} · ${observationKindLabel(
+            observation.note.kind,
+          )} · ${clean(
             observation.note.locationLabel,
           )} · ${recorderLabel(observation.note)} · ${observation.note.quickText}`,
         );
@@ -289,6 +334,7 @@ export async function buildCodexReport(
     for (const note of notes) {
       lines.push(`### ${formatDate(note.observedAt)}`);
       lines.push("");
+      lines.push(`- 기록 종류: ${observationKindLabel(note.kind)}`);
       lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
       lines.push(`- 기록한 사람: ${recorderLabel(note)}`);
@@ -310,10 +356,14 @@ export async function buildCodexReport(
 
       lines.push(`### ${formatDate(note.observedAt)} · ${detail.cueRawText}`);
       lines.push("");
+      lines.push(`- 기록 종류: ${observationKindLabel(note.kind)}`);
       lines.push(`- 무슨 일: ${situationLabel(note)}`);
       lines.push(`- 장소: ${clean(note.locationLabel)}`);
       lines.push(`- 기록한 사람: ${recorderLabel(note)}`);
       lines.push(`- 30초 메모: ${note.quickText}`);
+      lines.push(bullet("직전 상황", detail.antecedentText));
+      lines.push(bullet("맨 처음 보인 모습", detail.earlySignText));
+      lines.push(bullet("같이 보인 몸/말 행동", detail.selfRegulationText));
       lines.push(bullet("그때 보인 것", detail.cueRawText));
       lines.push(bullet("보인 것 추가", detail.cueObservedText));
       lines.push(bullet("주하 행동", detail.childActionText));

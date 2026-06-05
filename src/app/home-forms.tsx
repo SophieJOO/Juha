@@ -26,6 +26,12 @@ type PendingNoteOption = {
 
 const initialState: ActionState = { ok: false, message: "" };
 
+const observationKindOptions = [
+  { value: "INCIDENT", label: "부딪힘" },
+  { value: "NEUTRAL", label: "그냥 있었던 일" },
+  { value: "POSITIVE", label: "잘 된 순간" },
+] as const;
+
 function ActionMessage({ state }: { state: ActionState }) {
   if (!state.message) {
     return null;
@@ -90,6 +96,8 @@ export function QuickNoteForm({
       <input name="familyId" type="hidden" value={familyId} />
       <input name="childId" type="hidden" value={childId} />
 
+      <ActionMessage state={state} />
+
       <div className="grid gap-2">
         <span className="text-sm font-medium text-neutral-700">
           언제였나요?
@@ -111,6 +119,28 @@ export function QuickNoteForm({
           />
         </div>
       </div>
+
+      <fieldset className="grid gap-2">
+        <legend className="text-sm font-medium text-neutral-700">
+          어떤 기록인가요?
+        </legend>
+        <div className="grid grid-cols-3 gap-2">
+          {observationKindOptions.map((option) => (
+            <label key={option.value} className="group">
+              <input
+                className="peer sr-only"
+                defaultChecked={option.value === "INCIDENT"}
+                name="kind"
+                type="radio"
+                value={option.value}
+              />
+              <span className="flex min-h-11 cursor-pointer items-center justify-center break-keep rounded-md border border-stone-300 bg-white px-2 py-2 text-center text-[13px] font-medium leading-5 text-neutral-700 group-hover:border-teal-600 group-hover:bg-teal-50 peer-checked:border-teal-700 peer-checked:bg-teal-50 peer-checked:text-teal-950 sm:text-sm">
+                {option.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="grid gap-2">
         <legend className="text-sm font-medium text-neutral-700">
@@ -181,8 +211,6 @@ export function QuickNoteForm({
         {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
         저장하기
       </button>
-
-      <ActionMessage state={state} />
     </form>
   );
 }
@@ -203,6 +231,8 @@ export function DetailForm({
     <form action={formAction} className="mt-4 grid gap-4 sm:mt-5">
       <input name="familyId" type="hidden" value={familyId} />
 
+      <ActionMessage state={state} />
+
       <label className="grid gap-2 text-sm font-medium text-neutral-700">
         정리할 메모
         <select
@@ -212,7 +242,7 @@ export function DetailForm({
           required
         >
           {pendingNotes.length === 0 ? (
-            <option value="">먼저 30초 메모를 남겨주세요</option>
+            <option value="">자세히 정리할 부딪힘 기록이 없습니다</option>
           ) : (
             pendingNotes.map((note) => (
               <option key={note.id} value={note.id}>
@@ -222,6 +252,41 @@ export function DetailForm({
           )}
         </select>
       </label>
+
+      <details className="rounded-md border border-stone-200 bg-stone-50 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-neutral-700">
+          직전 상황과 처음 보인 모습 더 적기
+        </summary>
+
+        <div className="mt-4 grid gap-4">
+          <label className="grid gap-2 text-sm font-medium text-neutral-700">
+            그 직전엔 무슨 일이 있었나요?
+            <textarea
+              className="min-h-20 rounded-md border border-stone-300 bg-white px-3 py-3 text-base outline-none ring-teal-600 transition focus:ring-2"
+              name="antecedentText"
+              placeholder="예: 수업이 끝나고 바로 줄을 서라는 말을 들었다."
+            />
+          </label>
+
+          <label className="grid gap-2 text-sm font-medium text-neutral-700">
+            맨 처음 보인 모습은요?
+            <textarea
+              className="min-h-20 rounded-md border border-stone-300 bg-white px-3 py-3 text-base outline-none ring-teal-600 transition focus:ring-2"
+              name="earlySignText"
+              placeholder="예: 목소리가 커지고 책상 옆에 서 있었다."
+            />
+          </label>
+
+          <label className="grid gap-2 text-sm font-medium text-neutral-700">
+            그때 같이 보인 몸/말 행동
+            <textarea
+              className="min-h-20 rounded-md border border-stone-300 bg-white px-3 py-3 text-base outline-none ring-teal-600 transition focus:ring-2"
+              name="selfRegulationText"
+              placeholder="예: 손을 흔들거나 같은 말을 작게 반복했다."
+            />
+          </label>
+        </div>
+      </details>
 
       <label className="grid gap-2 text-sm font-medium text-neutral-700">
         그때 보인 것
@@ -304,8 +369,6 @@ export function DetailForm({
         {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
         자세히 정리 저장
       </button>
-
-      <ActionMessage state={state} />
     </form>
   );
 }

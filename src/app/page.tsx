@@ -52,11 +52,15 @@ type HomeData = {
   recordRows: {
     id: string;
     quickText: string;
+    kindLabel: string;
     label: string;
     observedAt: string;
     locationLabel: string | null;
     status: string;
     detailText: string | null;
+    antecedentText: string | null;
+    earlySignText: string | null;
+    selfRegulationText: string | null;
     askExpert: boolean;
     recorderName: string;
   }[];
@@ -65,14 +69,20 @@ type HomeData = {
     title: string;
     where: string;
     count: number;
+    incidentCount: number;
     level: string;
     ask: string;
     state: string;
+    earlySignCount: number;
+    stressScore: string;
   }[];
   stats: {
     pendingCount: number;
     newPatternCount: number;
     askExpertCount: number;
+    incidentCount: number;
+    neutralCount: number;
+    positiveCount: number;
   };
 };
 
@@ -138,6 +148,12 @@ function situationLabel(note: {
   return other ? `${base} · ${other}` : base;
 }
 
+function observationKindLabel(kind?: string | null) {
+  if (kind === "POSITIVE") return "잘 된 순간";
+  if (kind === "NEUTRAL") return "그냥 있었던 일";
+  return "부딪힘";
+}
+
 function recorderLabel(note: {
   createdBy?: {
     name: string;
@@ -181,6 +197,22 @@ function helpLevelSummary(levels: Array<string | null>) {
   ].filter(Boolean);
 
   return parts.length ? parts.join(" / ") : "아직 없음";
+}
+
+function stressScoreSummary(
+  observations: Array<{ helpLevel: string | null }>,
+) {
+  if (observations.length === 0) {
+    return "0.0";
+  }
+
+  const score = observations.reduce((sum, item) => {
+    if (item.helpLevel === "RED") return sum + 2;
+    if (item.helpLevel === "YELLOW") return sum + 1;
+    return sum;
+  }, 0);
+
+  return (score / observations.length).toFixed(1);
 }
 
 async function ensureHomeData(
@@ -306,6 +338,7 @@ async function ensureHomeData(
         id: true,
         quickText: true,
         observedAt: true,
+        kind: true,
         locationLabel: true,
         otherSituationLabel: true,
         situationKind: { select: { userFacingLabel: true } },
@@ -315,7 +348,16 @@ async function ensureHomeData(
             user: { select: { email: true } },
           },
         },
-        detail: { select: { id: true, cueRawText: true, askExpert: true } },
+        detail: {
+          select: {
+            id: true,
+            cueRawText: true,
+            antecedentText: true,
+            earlySignText: true,
+            selfRegulationText: true,
+            askExpert: true,
+          },
+        },
       },
     }),
     prisma.cueKey.findMany({
@@ -332,6 +374,8 @@ async function ensureHomeData(
           select: {
             helpLevel: true,
             askExpert: true,
+            earlySignText: true,
+            note: { select: { kind: true } },
           },
         },
       },
@@ -339,27 +383,41 @@ async function ensureHomeData(
   ]);
 
   const pendingNotes = notes
-    .filter((note) => !note.detail)
+    .filter((note) => !note.detail && note.kind === "INCIDENT")
     .slice(0, 8)
     .map((note) => ({
       id: note.id,
       quickText: note.quickText,
-      label: `${situationLabel(note)} · ${recorderLabel(note)} · ${note.quickText.slice(0, 34)}`,
+      label: `${observationKindLabel(note.kind)} · ${situationLabel(note)} · ${recorderLabel(note)} · ${note.quickText.slice(0, 34)}`,
     }));
 
   const repeatedPatterns = cueKeys
     .filter((cueKey) => cueKey.observations.length > 0)
-    .map((cueKey) => ({
-      id: cueKey.id,
-      title: cueKey.displayText,
-      where: cueKey.situationKind.userFacingLabel,
-      count: cueKey.observations.length,
-      level: helpLevelSummary(cueKey.observations.map((item) => item.helpLevel)),
-      ask: `전문가에게 물어보기 ${
-        cueKey.observations.filter((item) => item.askExpert).length
-      }번`,
-      state: reviewLabel(cueKey.review?.decision ?? "UNREVIEWED"),
-    }));
+    .map((cueKey) => {
+      const incidentObservations = cueKey.observations.filter(
+        (item) => item.note.kind === "INCIDENT",
+      );
+      const earlySignCount = incidentObservations.filter(
+        (item) => item.earlySignText?.trim(),
+      ).length;
+
+      return {
+        id: cueKey.id,
+        title: cueKey.displayText,
+        where: cueKey.situationKind.userFacingLabel,
+        count: cueKey.observations.length,
+        incidentCount: incidentObservations.length,
+        level: helpLevelSummary(
+          incidentObservations.map((item) => item.helpLevel),
+        ),
+        ask: `전문가에게 물어보기 ${
+          cueKey.observations.filter((item) => item.askExpert).length
+        }번`,
+        state: reviewLabel(cueKey.review?.decision ?? "UNREVIEWED"),
+        earlySignCount,
+        stressScore: stressScoreSummary(incidentObservations),
+      };
+    });
 
   return {
     familyId,
@@ -376,11 +434,15 @@ async function ensureHomeData(
     recordRows: notes.map((note) => ({
       id: note.id,
       quickText: note.quickText,
+      kindLabel: observationKindLabel(note.kind),
       label: situationLabel(note),
       observedAt: formatRecordDate(note.observedAt),
       locationLabel: note.locationLabel,
       status: note.detail ? "자세히 정리됨" : "정리 전",
       detailText: note.detail?.cueRawText ?? null,
+      antecedentText: note.detail?.antecedentText ?? null,
+      earlySignText: note.detail?.earlySignText ?? null,
+      selfRegulationText: note.detail?.selfRegulationText ?? null,
       askExpert: note.detail?.askExpert ?? false,
       recorderName: recorderLabel(note),
     })),
@@ -394,6 +456,9 @@ async function ensureHomeData(
           sum + cueKey.observations.filter((item) => item.askExpert).length,
         0,
       ),
+      incidentCount: notes.filter((note) => note.kind === "INCIDENT").length,
+      neutralCount: notes.filter((note) => note.kind === "NEUTRAL").length,
+      positiveCount: notes.filter((note) => note.kind === "POSITIVE").length,
     },
   } satisfies HomeData;
 }
@@ -566,9 +631,21 @@ export default async function HomePage() {
 
               <div className="hidden gap-3 sm:grid sm:grid-cols-3">
                 {[
-                  ["정리할 메모", data.stats.pendingCount, "아직 자세히 정리 전"],
-                  ["새로 보인 반복", data.stats.newPatternCount, "최근 14일 기준"],
-                  ["전문가에게 물어볼 것", data.stats.askExpertCount, "상담 때 확인"],
+                  [
+                    "부딪힘",
+                    data.stats.incidentCount,
+                    "자세히 볼 수 있는 장면",
+                  ],
+                  [
+                    "그냥/잘 된 순간",
+                    data.stats.neutralCount + data.stats.positiveCount,
+                    `그냥 ${data.stats.neutralCount} / 잘됨 ${data.stats.positiveCount}`,
+                  ],
+                  [
+                    "정리할 부딪힘",
+                    data.stats.pendingCount,
+                    "아직 자세히 정리 전",
+                  ],
                 ].map(([label, value, hint]) => (
                   <div
                     key={label}
@@ -623,6 +700,7 @@ export default async function HomePage() {
                               {note.quickText}
                             </p>
                             <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-sm text-neutral-500">
+                              <span>{note.kindLabel}</span>
                               <span>{note.label}</span>
                               <span>{note.observedAt}</span>
                               {note.locationLabel ? (
@@ -633,6 +711,21 @@ export default async function HomePage() {
                             {note.detailText ? (
                               <p className="mt-2 text-sm leading-5 text-neutral-600">
                                 그때 보인 것: {note.detailText}
+                              </p>
+                            ) : null}
+                            {note.antecedentText ? (
+                              <p className="mt-1 text-sm leading-5 text-neutral-600">
+                                직전 상황: {note.antecedentText}
+                              </p>
+                            ) : null}
+                            {note.earlySignText ? (
+                              <p className="mt-1 text-sm leading-5 text-neutral-600">
+                                맨 처음 보인 모습: {note.earlySignText}
+                              </p>
+                            ) : null}
+                            {note.selfRegulationText ? (
+                              <p className="mt-1 text-sm leading-5 text-neutral-600">
+                                같이 보인 몸/말 행동: {note.selfRegulationText}
                               </p>
                             ) : null}
                             {note.askExpert ? (
@@ -666,7 +759,8 @@ export default async function HomePage() {
                               {item.title}
                             </p>
                             <p className="mt-1 text-sm text-neutral-500">
-                              {item.where} · {item.count}번
+                              {item.where} · 전체 {item.count}번 · 부딪힘{" "}
+                              {item.incidentCount}번
                             </p>
                           </div>
                           <span className="shrink-0 rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-neutral-700">
@@ -679,6 +773,12 @@ export default async function HomePage() {
                           </span>
                           <span className="rounded-md bg-sky-50 px-2 py-1 text-sky-800">
                             {item.ask}
+                          </span>
+                          <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-800">
+                            격상점수 {item.stressScore}
+                          </span>
+                          <span className="rounded-md bg-stone-100 px-2 py-1 text-neutral-700">
+                            처음 모습 {item.earlySignCount}건
                           </span>
                         </div>
                       </div>
@@ -722,13 +822,14 @@ export default async function HomePage() {
                         <th className="px-3 py-2 font-medium">무슨 일</th>
                         <th className="px-3 py-2 font-medium">보인 것</th>
                         <th className="px-3 py-2 font-medium">횟수</th>
+                        <th className="px-3 py-2 font-medium">격상점수</th>
                         <th className="px-3 py-2 font-medium">현재 판단</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-200">
                       {data.repeatedPatterns.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-3 text-neutral-500" colSpan={4}>
+                          <td className="px-3 py-3 text-neutral-500" colSpan={5}>
                             전문가에게 보여줄 반복 기록이 아직 없습니다.
                           </td>
                         </tr>
@@ -737,7 +838,13 @@ export default async function HomePage() {
                           <tr key={item.id}>
                             <td className="px-3 py-2">{item.where}</td>
                             <td className="px-3 py-2">{item.title}</td>
-                            <td className="px-3 py-2">{item.count}</td>
+                            <td className="px-3 py-2">
+                              전체 {item.count} / 부딪힘 {item.incidentCount}
+                            </td>
+                            <td className="px-3 py-2">
+                              {item.stressScore} · 처음 모습{" "}
+                              {item.earlySignCount}건
+                            </td>
                             <td className="px-3 py-2">{item.state}</td>
                           </tr>
                         ))

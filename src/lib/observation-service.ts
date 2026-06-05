@@ -22,6 +22,9 @@ type SaveObservationDetailInput = {
   parentThoughts?: string;
   priorAgreement?: PriorAgreement;
   priorAgreementQuote?: string;
+  antecedentText?: string;
+  earlySignText?: string;
+  selfRegulationText?: string;
 };
 
 function isUniqueConstraintRace(error: unknown) {
@@ -93,6 +96,9 @@ export async function saveObservationDetail(input: SaveObservationDetailInput) {
             priorAgreementQuote: input.priorAgreementQuote,
             cueRawText: input.cueRawText.trim(),
             cueKind: input.cueKind,
+            antecedentText: input.antecedentText,
+            earlySignText: input.earlySignText,
+            selfRegulationText: input.selfRegulationText,
             cueObservedText: input.cueObservedText,
             childActionText: input.childActionText,
             peerSpeechText: input.peerSpeechText,
@@ -108,6 +114,9 @@ export async function saveObservationDetail(input: SaveObservationDetailInput) {
             priorAgreementQuote: input.priorAgreementQuote,
             cueRawText: input.cueRawText.trim(),
             cueKind: input.cueKind,
+            antecedentText: input.antecedentText,
+            earlySignText: input.earlySignText,
+            selfRegulationText: input.selfRegulationText,
             cueObservedText: input.cueObservedText,
             childActionText: input.childActionText,
             peerSpeechText: input.peerSpeechText,

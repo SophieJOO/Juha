@@ -18,6 +18,12 @@ enum NoteStatus {
   DETAILED
 }
 
+enum ObservationKind {
+  INCIDENT
+  NEUTRAL
+  POSITIVE
+}
+
 enum HelpLevel {
   RED
   YELLOW
@@ -236,6 +242,7 @@ model ObservationNote {
   situationKindId     String?    @map("situation_kind_id")
   otherSituationLabel String?    @map("other_situation_label")
   quickText           String     @map("quick_text")
+  kind                ObservationKind @default(INCIDENT) @map("kind")
   status              NoteStatus @default(QUICK_ONLY)
   createdAt           DateTime   @default(now()) @map("created_at")
   updatedAt           DateTime   @updatedAt @map("updated_at")
@@ -259,6 +266,9 @@ model ObservationDetail {
   priorAgreementQuote String?        @map("prior_agreement_quote")
   cueRawText          String         @map("cue_raw_text")
   cueKind             CueKind?       @map("cue_kind")
+  antecedentText      String?        @map("antecedent_text")
+  earlySignText       String?        @map("early_sign_text")
+  selfRegulationText  String?        @map("self_regulation_text")
   cueObservedText     String?        @map("cue_observed_text")
   childActionText     String?        @map("child_action_text")
   peerSpeechText      String?        @map("peer_speech_text")
